@@ -1,10 +1,19 @@
 'use strict'
 
-class App {
+class LearnJS {
+  problemView() {
+    return $('<div class="problem-view">').text('Coming soon!')
+  }
+
   showView(hash) {
-    const problemView = $('<div class="problem-view">').text('Coming soon!')
-    $('.view-container').empty().append(problemView)
+    const routes = {
+      '#problem-1': this.problemView
+    }
+    const viewFn = routes[hash]
+    if (viewFn) {
+      $('.view-container').empty().append(viewFn)
+    }
   }
 }
 
-const learnjs = new App()
+const learnjs = new LearnJS()
