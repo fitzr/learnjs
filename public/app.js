@@ -1,12 +1,12 @@
 'use strict'
 
 class LearnJS {
-  problemView(problemNumber) {
+  static problemView(problemNumber) {
     const title = `Problem #${problemNumber} Coming soon!`
     return $('<div class="problem-view">').text(title)
   }
 
-  showView(hash) {
+  static showView(hash) {
     const routes = {
       '#problem': this.problemView
     }
@@ -16,6 +16,10 @@ class LearnJS {
       $('.view-container').empty().append(viewFn(param))
     }
   }
+
+  static appOnReady() {
+    LearnJS.showView(window.location.hash)
+  }
 }
 
-const learnjs = new LearnJS()
+const learnjs = LearnJS
