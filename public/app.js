@@ -1,17 +1,19 @@
 'use strict'
 
 class LearnJS {
-  problemView() {
-    return $('<div class="problem-view">').text('Coming soon!')
+  problemView(problemNumber) {
+    const title = `Problem #${problemNumber} Coming soon!`
+    return $('<div class="problem-view">').text(title)
   }
 
   showView(hash) {
     const routes = {
-      '#problem-1': this.problemView
+      '#problem': this.problemView
     }
-    const viewFn = routes[hash]
+    const [view, param] = hash.split('-')
+    const viewFn = routes[view]
     if (viewFn) {
-      $('.view-container').empty().append(viewFn)
+      $('.view-container').empty().append(viewFn(param))
     }
   }
 }
