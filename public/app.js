@@ -18,6 +18,9 @@ class LearnJS {
   }
 
   static appOnReady() {
+    window.onhashchange = () => {
+      LearnJS.showView(window.location.hash)
+    }
     LearnJS.showView(window.location.hash)
   }
 }
