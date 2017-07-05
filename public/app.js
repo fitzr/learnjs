@@ -30,13 +30,20 @@ class LearnJS {
       const answer = view.find('.answer').val()
       const test = problemData.code.replace('__', answer) + '; problem();'
       const result = eval(test)
-      resultFlash.text(result ? 'Correct!' : 'Incorrect!')
+      LearnJS.flashElement(resultFlash, result ? 'Correct!' : 'Incorrect!')
       return false
     })
 
     view.find('.title').text(`Problem #${problemNumber}`)
     LearnJS.applyObject(problemData, view)
     return view
+  }
+
+  static flashElement(elem, content) {
+    elem.fadeOut('fast', () => {
+      elem.html(content)
+      elem.fadeIn()
+    })
   }
 
   static applyObject(obj, elem) {
