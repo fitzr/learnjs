@@ -29,6 +29,22 @@ describe('LearnJS', () => {
     expect(learnjs.showView).toHaveBeenCalledWith(window.location.hash)
   })
 
+  it('can flash an element while setting the text', () => {
+    const elem = $('<p>')
+    spyOn(elem, 'fadeOut').and.callThrough()
+    spyOn(elem, 'fadeIn')
+    learnjs.flashElement(elem, 'new text')
+    expect(elem.text()).toEqual('new text')
+    expect(elem.fadeOut).toHaveBeenCalled()
+    expect(elem.fadeIn).toHaveBeenCalled()
+  })
+
+  it('can redirect to the main view after the last problem is answered', () => {
+    const flash = learnjs.buildCorrectFlash(2)
+    expect(flash.find('a').attr('href')).toEqual('')
+    expect(flash.find('a').text()).toEqual("You're Finished!")
+  })
+
   describe('problem view', () => {
     let view
 
@@ -49,16 +65,37 @@ describe('LearnJS', () => {
     })
 
     describe('answer section', () => {
-      it('can check a correct answer by hitting a button', () => {
-        view.find('.answer').val('true')
-        view.find('.check-btn').click()
-        expect(view.find('.result').text()).toEqual('Correct!')
+      let resultFlash
+
+      beforeEach(() => {
+        spyOn(learnjs, 'flashElement')
+        resultFlash = view.find('.result')
+      })
+
+      describe('when the answer is correct', () => {
+
+        beforeEach(() => {
+          view.find('.answer').val('true')
+          view.find('.check-btn').click()
+        })
+
+        it('flashes the result', () => {
+          const flashArgs = learnjs.flashElement.calls.argsFor(0)
+          expect(flashArgs[0]).toEqual(resultFlash)
+          expect(flashArgs[1].find('span').text()).toEqual('Correct!')
+        })
+
+        it('shows a link to next problem', () => {
+          const link = learnjs.flashElement.calls.argsFor(0)[1].find('a')
+          expect(link.text()).toEqual('Next Problem')
+          expect(link.attr('href')).toEqual('#problem-2')
+        })
       })
 
       it('rejects an incorrect answer', () => {
         view.find('.answer').val('false')
         view.find('.check-btn').click()
-        expect(view.find('.result').text()).toEqual('Incorrect!')
+        expect(learnjs.flashElement).toHaveBeenCalledWith(resultFlash, 'Incorrect!')
       })
     })
   })

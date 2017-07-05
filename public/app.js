@@ -22,7 +22,7 @@ class LearnJS {
 
   static problemView(data) {
     const problemNumber = parseInt(data, 10)
-    const view = $('.templates .problem-view').clone()
+    const view = LearnJS.template('problem-view')
     const problemData = LearnJS.problems[problemNumber - 1]
     const resultFlash = view.find('.result')
 
@@ -30,13 +30,36 @@ class LearnJS {
       const answer = view.find('.answer').val()
       const test = problemData.code.replace('__', answer) + '; problem();'
       const result = eval(test)
-      LearnJS.flashElement(resultFlash, result ? 'Correct!' : 'Incorrect!')
+
+      if (result) {
+        const correctFlash = LearnJS.buildCorrectFlash(problemNumber)
+        LearnJS.flashElement(resultFlash, correctFlash)
+      } else {
+        LearnJS.flashElement(resultFlash, 'Incorrect!')
+      }
+
       return false
     })
 
     view.find('.title').text(`Problem #${problemNumber}`)
     LearnJS.applyObject(problemData, view)
     return view
+  }
+
+  static template(name) {
+    return $(`.templates .${name}`).clone()
+  }
+
+  static buildCorrectFlash(problemNum) {
+    const correctFlash = LearnJS.template('correct-flash')
+    const link = correctFlash.find('a')
+    if (problemNum < LearnJS.problems.length) {
+      link.attr('href', `#problem-${problemNum + 1}`)
+    } else {
+      link.attr('href', '')
+      link.text("You're Finished!")
+    }
+    return correctFlash
   }
 
   static flashElement(elem, content) {
