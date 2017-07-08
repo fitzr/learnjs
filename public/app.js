@@ -11,13 +11,19 @@ class LearnJS {
 
   static showView(hash) {
     const routes = {
-      '#problem': this.problemView
+      '#problem': this.problemView,
+      '#': this.landingView,
+      '': this.landingView,
     }
     const [view, param] = hash.split('-')
     const viewFn = routes[view]
     if (viewFn) {
       $('.view-container').empty().append(viewFn(param))
     }
+  }
+
+  static landingView() {
+    return LearnJS.template('landing-view')
   }
 
   static problemView(data) {
@@ -86,6 +92,5 @@ LearnJS.problems = [
     code: 'function problem() { return 42 === 6 * __; }'
   },
 ]
-
 
 const learnjs = LearnJS
