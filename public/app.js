@@ -9,6 +9,10 @@ class LearnJS {
     LearnJS.showView(window.location.hash)
   }
 
+  static triggerEvent(name, args) {
+    $('.view-container>*').trigger(name, args)
+  }
+
   static showView(hash) {
     const routes = {
       '#problem': this.problemView,
@@ -18,6 +22,7 @@ class LearnJS {
     const [view, param] = hash.split('-')
     const viewFn = routes[view]
     if (viewFn) {
+      LearnJS.triggerEvent('removingView', [])
       $('.view-container').empty().append(viewFn(param))
     }
   }
@@ -47,6 +52,15 @@ class LearnJS {
       return false
     })
 
+    if (LearnJS.hasNextProblem(problemNumber)) {
+      const buttonItem = LearnJS.template('skip-btn')
+      buttonItem.find('a').attr('href', `#problem-${problemNumber + 1}`)
+      $('.nav-list').append(buttonItem)
+      view.bind('removingView', () => {
+        buttonItem.remove()
+      })
+    }
+
     view.find('.title').text(`Problem #${problemNumber}`)
     LearnJS.applyObject(problemData, view)
     return view
@@ -59,7 +73,7 @@ class LearnJS {
   static buildCorrectFlash(problemNum) {
     const correctFlash = LearnJS.template('correct-flash')
     const link = correctFlash.find('a')
-    if (problemNum < LearnJS.problems.length) {
+    if (LearnJS.hasNextProblem(problemNum)) {
       link.attr('href', `#problem-${problemNum + 1}`)
     } else {
       link.attr('href', '')
@@ -79,6 +93,10 @@ class LearnJS {
     Object.entries(obj).forEach(([key, val]) => {
       elem.find(`[data-name='${key}']`).text(val)
     })
+  }
+
+  static hasNextProblem(number) {
+    return number < LearnJS.problems.length
   }
 }
 
