@@ -109,6 +109,10 @@ LearnJS.problems = [
     description: 'Simple Math',
     code: 'function problem() { return 42 === 6 * __; }'
   },
+  {
+    description: 'Complex Math',
+    code: 'function problem() { return __ % 5 === 30; }'
+  }
 ]
 
 const learnjs = LearnJS
