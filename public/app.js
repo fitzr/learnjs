@@ -5,9 +5,9 @@ class LearnJS {
   constructor(problems) {
     this.problems = problems
     this.identity = {}
-    this.identity.then = new Promise((resolve) => {
+    this.identity.promise = new Promise((resolve) => {
       this.identity.resolve = resolve
-    }).then
+    })
   }
 
   appOnReady() {
@@ -15,6 +15,8 @@ class LearnJS {
       this.showView(window.location.hash)
     }
     this.showView(window.location.hash)
+    this.identity.promise =
+      this.identity.promise.then((identity) => this.addProfileLink(identity))
   }
 
   triggerEvent(name, args) {
@@ -24,6 +26,7 @@ class LearnJS {
   showView(hash) {
     const routes = {
       '#problem': this.problemView.bind(this),
+      '#profile': this.profileView.bind(this),
       '#': this.landingView.bind(this),
       '': this.landingView.bind(this),
     }
@@ -72,6 +75,22 @@ class LearnJS {
     view.find('.title').text(`Problem #${problemNumber}`)
     this.applyObject(problemData, view)
     return view
+  }
+
+  profileView() {
+    const view = this.template('profile-view')
+    this.identity.promise = this.identity.promise.then((identity) => {
+      view.find('.email').text(identity.email)
+      return identity
+    })
+    return view
+  }
+
+  addProfileLink(identity) {
+    const link = this.template('profile-link')
+    link.find('a').text(identity.email)
+    $('.signin-bar').prepend(link)
+    return identity
   }
 
   template(name) {
@@ -139,8 +158,7 @@ const POOL_ID = 'ap-northeast-1:df5562d1-b8ba-4fe0-8ca2-9d25092f192b'
 
 const learnjs = new LearnJS(PROBLEMS)
 
-const googleSignIn = (googleUser) => {
-
+function googleSignIn(googleUser) {
   const id_token = googleUser.getAuthResponse().id_token
 
   AWS.config.update({
