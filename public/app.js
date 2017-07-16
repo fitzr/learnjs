@@ -172,13 +172,14 @@ function googleSignIn(googleUser) {
   })
 
   const refresh = () => {
-    return gapi.auth2.getAuthInstance().signIn({
-      prompt: 'login'
-    }).then((userUpdate) => {
-      const creds = AWS.config.credentials
-      creds.params.Logins['accounts.google.com'] = userUpdate.getAuthResponse().id_token
-      return learnjs.awsRefresh()
-    })
+    return gapi.auth2
+      .getAuthInstance()
+      .signIn({ prompt: 'login' })
+      .then((userUpdate) => {
+        const creds = AWS.config.credentials
+        creds.params.Logins['accounts.google.com'] = userUpdate.getAuthResponse().id_token
+        return learnjs.awsRefresh()
+      })
   }
 
   learnjs.awsRefresh().then((id) => {

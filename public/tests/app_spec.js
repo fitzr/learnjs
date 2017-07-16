@@ -1,5 +1,12 @@
 
 describe('LearnJS', () => {
+  beforeEach(() => {
+    learnjs.identity = {}
+    learnjs.identity.promise = new Promise((resolve) => {
+      learnjs.identity.resolve = resolve
+    })
+  })
+
   it('can show a problem view', () => {
     learnjs.showView('#problem-1')
     expect($('.view-container .problem-view').length).toEqual(1)
@@ -46,7 +53,7 @@ describe('LearnJS', () => {
   })
 
   it('can redirect to the main view after the last problem is answered', () => {
-    const flash = learnjs.buildCorrectFlash(2)
+    const flash = learnjs.buildCorrectFlash(learnjs.problems.length)
     expect(flash.find('a').attr('href')).toEqual('')
     expect(flash.find('a').text()).toEqual("You're Finished!")
   })
@@ -58,6 +65,139 @@ describe('LearnJS', () => {
     learnjs.triggerEvent('fooEvent', ['bar'])
     expect(callback).toHaveBeenCalled()
     expect(callback.calls.argsFor(0)[1]).toEqual('bar')
+  })
+
+  it('adds the profile link when the user logs in', (done) => {
+    const identity = { email: 'foo@bar.com' }
+    spyOn(learnjs, 'addProfileLink')
+    learnjs.appOnReady()
+    learnjs.identity.resolve(identity)
+    learnjs.identity.promise.then(() => {
+      expect(learnjs.addProfileLink).toHaveBeenCalledWith(identity)
+      done()
+    })
+  })
+
+  it('can append a profile view link to navbar', () => {
+    learnjs.addProfileLink({ email: 'foo@bar.com' })
+    expect($('.signin-bar a').attr('href')).toEqual('#profile')
+  })
+
+  describe('awsRefresh', () => {
+    let fakeCreds, callbackArg
+
+    beforeEach(() => {
+      fakeCreds = jasmine.createSpyObj('creds', ['refresh'])
+      fakeCreds.identityId = 'COGNITO_ID'
+      AWS.config.credentials = fakeCreds
+      fakeCreds.refresh.and.callFake((cb) => { cb(callbackArg) })
+    })
+
+    it('returns a promise that resolve on success', (done) => {
+      learnjs.awsRefresh().then(() => {
+        expect(fakeCreds.identityId).toEqual('COGNITO_ID')
+      }).then(done, fail)
+    })
+
+    it('rejects the promise on a failure', (done) => {
+      callbackArg = 'error'
+      learnjs.awsRefresh().catch((err) => {
+        expect(err).toEqual('error')
+        done()
+      })
+    })
+  })
+
+  describe('profile view', () => {
+    let view
+
+    beforeEach(() => {
+      view = learnjs.profileView()
+    })
+
+    it('shows the user email address when they log in', (done) => {
+      learnjs.identity.resolve({ email: 'foo@bar.com' })
+      learnjs.identity.promise.then(() => {
+        expect(view.find('.email').text()).toEqual('foo@bar.com')
+        done()
+      })
+    })
+
+    it('shows no email when the user is not logged in yet', () => {
+      expect(view.find('.email').text()).toEqual('')
+    })
+  })
+
+  describe('googleSignIn callback', () => {
+    let user, profile
+
+    beforeEach(() => {
+      profile = jasmine.createSpyObj('profile', ['getEmail'])
+      const refreshPromise = Promise.resolve('COGNITO_ID')
+      spyOn(learnjs, 'awsRefresh').and.returnValue(refreshPromise)
+      spyOn(AWS, 'CognitoIdentityCredentials')
+      user = jasmine.createSpyObj('user', ['getAuthResponse', 'getBasicProfile'])
+      user.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
+      user.getBasicProfile.and.returnValue(profile)
+      profile.getEmail.and.returnValue('foo@bar.com')
+      googleSignIn(user)
+    })
+
+    it('sets the AWS region', () => {
+      expect(AWS.config.region).toEqual('ap-northeast-1')
+    })
+
+    it('sets the identity pool ID and Google ID token', () => {
+      expect(AWS.CognitoIdentityCredentials).toHaveBeenCalledWith({
+        IdentityPoolId: POOL_ID,
+        Logins: {
+          'accounts.google.com': 'GOOGLE_ID'
+        }
+      })
+    })
+
+    it('fetches the AWS credentials and resolved', (done) => {
+      learnjs.identity.promise.then((identity) => {
+        expect(identity.email).toEqual('foo@bar.com')
+        expect(identity.id).toEqual('COGNITO_ID')
+        done()
+      })
+    })
+
+    describe('refresh', () => {
+      let instanceSpy
+
+      beforeEach(() => {
+        AWS.config.credentials = { params: { Logins: {}}}
+        const updateSpy = jasmine.createSpyObj('userUpdate', ['getAuthResponse'])
+        updateSpy.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
+        instanceSpy = jasmine.createSpyObj('instance', ['signIn'])
+        instanceSpy.signIn.and.returnValue(Promise.resolve(updateSpy))
+        const auth2Spy = jasmine.createSpyObj('auth2', ['getAuthInstance'])
+        auth2Spy.getAuthInstance.and.returnValue(instanceSpy)
+        window.gapi = { auth2: auth2Spy }
+      })
+
+      it('returns a promise when token is refreshed', (done) => {
+        learnjs.identity.promise.then((identity) => {
+          identity.refresh().then(() => {
+            expect(AWS.config.credentials.params.Logins).toEqual({
+              'accounts.google.com': 'GOOGLE_ID'
+            })
+            done()
+          })
+        })
+      })
+
+      it('does not re-prompt for consent when refreshing the token in', (done) => {
+        learnjs.identity.promise.then((identity) => {
+          identity.refresh().then(() => {
+            expect(instanceSpy.signIn).toHaveBeenCalledWith({prompt: 'login'})
+            done()
+          })
+        })
+      })
+    })
   })
 
   describe('problem view', () => {
@@ -95,7 +235,7 @@ describe('LearnJS', () => {
 
       it('does not added when at the last problem', () => {
         view.trigger('removingView')
-        view = learnjs.problemView('2')
+        view = learnjs.problemView(`${learnjs.problems.length}`)
         expect($('.nav-list .skip-btn').length).toEqual(0)
       })
     })
