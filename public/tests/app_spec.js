@@ -84,23 +84,24 @@ describe('LearnJS', () => {
   })
 
   describe('awsRefresh', () => {
-    let fakeCreds, callbackArg
+    let fakeCreds
 
     beforeEach(() => {
-      fakeCreds = jasmine.createSpyObj('creds', ['refresh'])
+      fakeCreds = jasmine.createSpyObj('creds', ['refreshPromise'])
       fakeCreds.identityId = 'COGNITO_ID'
       AWS.config.credentials = fakeCreds
-      fakeCreds.refresh.and.callFake((cb) => { cb(callbackArg) })
     })
 
     it('returns a promise that resolve on success', (done) => {
+      fakeCreds.refreshPromise.and.returnValue(Promise.resolve())
       learnjs.awsRefresh().then(() => {
         expect(fakeCreds.identityId).toEqual('COGNITO_ID')
-      }).then(done, fail)
+        done()
+      })
     })
 
     it('rejects the promise on a failure', (done) => {
-      callbackArg = 'error'
+      fakeCreds.refreshPromise.and.returnValue(Promise.reject('error'))
       learnjs.awsRefresh().catch((err) => {
         expect(err).toEqual('error')
         done()

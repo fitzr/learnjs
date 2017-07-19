@@ -127,15 +127,8 @@ class LearnJS {
   }
 
   awsRefresh() {
-    return new Promise((resolve, reject) => {
-      AWS.config.credentials.refresh((err) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(AWS.config.credentials.identityId)
-        }
-      })
-    })
+    return AWS.config.credentials.refreshPromise()
+      .then(() => AWS.config.credentials.identityId)
   }
 }
 
