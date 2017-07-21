@@ -4,18 +4,15 @@ class LearnJS {
 
   constructor(problems) {
     this.problems = problems
-    this.id = {}
-    this.id.promise = new Promise((resolve) => {
-      this.id.resolve = resolve
+    this.idPromise = new Promise((resolve) => {
+      this.idResolve = resolve
     })
   }
 
-  identity(fn) {
-    return new Promise(resolve => {
-      this.id.promise = this.id.promise.then(id => {
-        resolve(fn(id))
-        return id
-      })
+  userInfo(fn) {
+    this.idPromise = this.idPromise.then(user => {
+        fn(user)
+        return user
     })
   }
 
@@ -24,7 +21,7 @@ class LearnJS {
       this.showView(window.location.hash)
     }
     this.showView(window.location.hash)
-    this.identity(identity => this.addProfileLink(identity))
+    this.userInfo(user => { this.addProfileLink(user) })
   }
 
   triggerEvent(name, args) {
@@ -88,13 +85,13 @@ class LearnJS {
 
   profileView() {
     const view = this.template('profile-view')
-    this.identity(identity => { view.find('.email').text(identity.email) })
+    this.userInfo(user => { view.find('.email').text(user.email) })
     return view
   }
 
-  addProfileLink(id) {
+  addProfileLink(user) {
     const link = this.template('profile-link')
-    link.find('a').text(id.email)
+    link.find('a').text(user.email)
     $('.signin-bar').prepend(link)
   }
 
@@ -131,25 +128,59 @@ class LearnJS {
     return number < this.problems.length
   }
 
+  googleRefresh(user) {
+    return gapi.auth2
+      .getAuthInstance()
+      .signIn({ prompt: 'login' })
+      .then((userUpdate) => {
+        const creds = AWS.config.credentials
+        creds.params.Logins['accounts.google.com'] = userUpdate.getAuthResponse().id_token
+        return this.awsRefresh().then(id => {
+          this.idPromise = Promise.resolve({ id, email: user.email })
+        })
+      })
+  }
+
   awsRefresh() {
     return AWS.config.credentials.refreshPromise()
       .then(() => AWS.config.credentials.identityId)
   }
 
   saveAnswer(problemId, answer) {
-    return learnjs.identity(identity => {
-      const db = new AWS.DynamoDB.DocumentClient()
-      const item = {
-        TableName: 'learnjs',
-        Item: {
-          userId: identity.id,
-          problemId: problemId,
-          answer,
+    return new Promise(resolve => {
+      learnjs.userInfo(user => {
+        const db = new AWS.DynamoDB.DocumentClient()
+        const item = {
+          TableName: 'learnjs',
+          Item: {
+            userId: user.id,
+            problemId: problemId,
+            answer,
+          }
         }
-      }
-      return learnjs.sendDbRequest(db.put(item), () => {
-        this.saveAnswer(problemId, answer)
+        const request = learnjs.sendDbRequest(db.put(item), () => this.saveAnswer(problemId, answer))
+        resolve(request)
       })
+    })
+  }
+
+  sendDbRequest(req, retry) {
+    return new Promise((resolve, reject) => {
+      req.on('success', (resp) => {
+        resolve(resp.data)
+      })
+      req.on('error', (error) => {
+        if (error.code === 'CredentialsError') {
+          this.userInfo(user => {
+            this.googleRefresh(user)
+              .then(retry)
+              .then(resolve)
+          })
+        } else {
+          reject(error)
+        }
+      })
+      req.send()
     })
   }
 }
@@ -186,22 +217,10 @@ function googleSignIn(googleUser) {
     })
   })
 
-  const refresh = () => {
-    return gapi.auth2
-      .getAuthInstance()
-      .signIn({ prompt: 'login' })
-      .then((userUpdate) => {
-        const creds = AWS.config.credentials
-        creds.params.Logins['accounts.google.com'] = userUpdate.getAuthResponse().id_token
-        return learnjs.awsRefresh()
-      })
-  }
-
   learnjs.awsRefresh().then((id) => {
-    learnjs.id.resolve({
+    learnjs.idResolve({
       id,
       email: googleUser.getBasicProfile().getEmail(),
-      refresh
     })
   })
 }

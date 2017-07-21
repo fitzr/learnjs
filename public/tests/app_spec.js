@@ -1,9 +1,8 @@
 
 describe('LearnJS', () => {
   beforeEach(() => {
-    learnjs.id = {}
-    learnjs.id.promise = new Promise((resolve) => {
-      learnjs.id.resolve = resolve
+    learnjs.idPromise = new Promise((resolve) => {
+      learnjs.idResolve = resolve
     })
   })
 
@@ -68,12 +67,12 @@ describe('LearnJS', () => {
   })
 
   it('adds the profile link when the user logs in', (done) => {
-    const identity = { email: 'foo@bar.com' }
+    const user = { email: 'foo@bar.com' }
     spyOn(learnjs, 'addProfileLink')
     learnjs.appOnReady()
-    learnjs.id.resolve(identity)
-    learnjs.id.promise.then(() => {
-      expect(learnjs.addProfileLink).toHaveBeenCalledWith(identity)
+    learnjs.idResolve(user)
+    learnjs.idPromise.then(() => {
+      expect(learnjs.addProfileLink).toHaveBeenCalledWith(user)
       done()
     })
   })
@@ -83,19 +82,95 @@ describe('LearnJS', () => {
     expect($('.signin-bar a').attr('href')).toEqual('#profile')
   })
 
+  describe('saveAnswer', () => {
+    let dbspy, userObj
+    beforeEach(() => {
+      dbspy = jasmine.createSpyObj('db', ['put'])
+      dbspy.put.and.returnValue('request')
+      spyOn(AWS.DynamoDB, 'DocumentClient').and.returnValue(dbspy)
+      spyOn(learnjs, 'sendDbRequest')
+      userObj = {id: 'COGNITO_ID'}
+      learnjs.idResolve(userObj)
+    })
+
+    it('writes the item to the database', (done) => {
+      learnjs.saveAnswer(1, {}).then(() => {
+        expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+        expect(dbspy.put).toHaveBeenCalledWith({
+          TableName: 'learnjs',
+          Item: {
+            userId: 'COGNITO_ID',
+            problemId: 1,
+            answer: {},
+          }
+        })
+        done()
+      }, fail)
+    })
+
+    it('resubmits the request on retry', (done) => {
+      learnjs.saveAnswer(1, {answer: 'false'}).then(() => {
+        spyOn(learnjs, 'saveAnswer').and.returnValue('promise')
+        expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+        expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, {answer: 'false'})
+        done()
+      }, fail)
+    })
+  })
+
+  describe('sendDbRequest', () => {
+    let request, requestHandlers, promise, retrySpy
+    beforeEach(() => {
+      spyOn(learnjs, 'googleRefresh').and.returnValue(Promise.resolve())
+      requestHandlers = {}
+      request = jasmine.createSpyObj('request', ['send', 'on'])
+      request.on.and.callFake((eventName, callback) => {
+        requestHandlers[eventName] = callback
+      })
+      retrySpy = jasmine.createSpy('retry')
+      promise = learnjs.sendDbRequest(request, retrySpy)
+    })
+
+    it('resolves the returned promise on success', (done) => {
+      requestHandlers.success({data: 'data'})
+      expect(request.send).toHaveBeenCalled()
+      promise.then((data) => {
+        expect(data).toEqual('data')
+        done()
+      }, fail)
+    })
+
+    it('rejects the returned promise on error', (done) => {
+      requestHandlers.error({code: 'SomeError'})
+      promise.catch((resp) => {
+        expect(resp).toEqual({code: 'SomeError'})
+        done()
+      })
+    })
+
+    it('refreshes the credentials and retries when the credentials are expired', (done) => {
+      requestHandlers.error({code: 'CredentialsError'})
+      learnjs.idResolve({email: 'foo@bar.com'})
+      promise.then(() => {
+        expect(retrySpy).toHaveBeenCalled()
+        done()
+      })
+    })
+  })
+
   describe('awsRefresh', () => {
     let fakeCreds
 
     beforeEach(() => {
       fakeCreds = jasmine.createSpyObj('creds', ['refreshPromise'])
-      fakeCreds.identityId = 'COGNITO_ID'
+      fakeCreds.userId = 'COGNITO_ID'
       AWS.config.credentials = fakeCreds
     })
 
     it('returns a promise that resolve on success', (done) => {
       fakeCreds.refreshPromise.and.returnValue(Promise.resolve())
       learnjs.awsRefresh().then(() => {
-        expect(fakeCreds.identityId).toEqual('COGNITO_ID')
+        expect(fakeCreds.userId).toEqual('COGNITO_ID')
         done()
       })
     })
@@ -117,8 +192,8 @@ describe('LearnJS', () => {
     })
 
     it('shows the user email address when they log in', (done) => {
-      learnjs.id.resolve({ email: 'foo@bar.com' })
-      learnjs.id.promise.then(() => {
+      learnjs.idResolve({ email: 'foo@bar.com' })
+      learnjs.idPromise.then(() => {
         expect(view.find('.email').text()).toEqual('foo@bar.com')
         done()
       })
@@ -158,14 +233,14 @@ describe('LearnJS', () => {
     })
 
     it('fetches the AWS credentials and resolved', (done) => {
-      learnjs.id.promise.then((identity) => {
-        expect(identity.email).toEqual('foo@bar.com')
-        expect(identity.id).toEqual('COGNITO_ID')
+      learnjs.idPromise.then((user) => {
+        expect(user.email).toEqual('foo@bar.com')
+        expect(user.id).toEqual('COGNITO_ID')
         done()
       })
     })
 
-    describe('refresh', () => {
+    describe('googleRefresh', () => {
       let instanceSpy
 
       beforeEach(() => {
@@ -180,8 +255,8 @@ describe('LearnJS', () => {
       })
 
       it('returns a promise when token is refreshed', (done) => {
-        learnjs.id.promise.then((identity) => {
-          identity.refresh().then(() => {
+        learnjs.idPromise.then((user) => {
+          learnjs.googleRefresh(user).then(() => {
             expect(AWS.config.credentials.params.Logins).toEqual({
               'accounts.google.com': 'GOOGLE_ID'
             })
@@ -191,8 +266,8 @@ describe('LearnJS', () => {
       })
 
       it('does not re-prompt for consent when refreshing the token in', (done) => {
-        learnjs.id.promise.then((identity) => {
-          identity.refresh().then(() => {
+        learnjs.idPromise.then((user) => {
+          learnjs.googleRefresh(user).then(() => {
             expect(instanceSpy.signIn).toHaveBeenCalledWith({prompt: 'login'})
             done()
           })
