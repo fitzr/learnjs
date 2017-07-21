@@ -64,6 +64,7 @@ class LearnJS {
       if (result) {
         const correctFlash = this.buildCorrectFlash(problemNumber)
         this.flashElement(resultFlash, correctFlash)
+        this.saveAnswer(problemNumber, answer)
       } else {
         this.flashElement(resultFlash, 'Incorrect!')
       }
@@ -133,6 +134,23 @@ class LearnJS {
   awsRefresh() {
     return AWS.config.credentials.refreshPromise()
       .then(() => AWS.config.credentials.identityId)
+  }
+
+  saveAnswer(problemId, answer) {
+    return learnjs.identity(identity => {
+      const db = new AWS.DynamoDB.DocumentClient()
+      const item = {
+        TableName: 'learnjs',
+        Item: {
+          userId: identity.id,
+          problemId: problemId,
+          answer,
+        }
+      }
+      return learnjs.sendDbRequest(db.put(item), () => {
+        this.saveAnswer(problemId, answer)
+      })
+    })
   }
 }
 

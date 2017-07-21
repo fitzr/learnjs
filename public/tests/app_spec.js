@@ -252,8 +252,13 @@ describe('LearnJS', () => {
       describe('when the answer is correct', () => {
 
         beforeEach(() => {
+          spyOn(learnjs, 'saveAnswer')
           view.find('.answer').val('true')
           view.find('.check-btn').click()
+        })
+
+        it('save the result', () => {
+          expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, 'true')
         })
 
         it('flashes the result', () => {
