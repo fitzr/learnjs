@@ -1,9 +1,9 @@
 
 describe('LearnJS', () => {
   beforeEach(() => {
-    learnjs.identity = {}
-    learnjs.identity.promise = new Promise((resolve) => {
-      learnjs.identity.resolve = resolve
+    learnjs.id = {}
+    learnjs.id.promise = new Promise((resolve) => {
+      learnjs.id.resolve = resolve
     })
   })
 
@@ -71,8 +71,8 @@ describe('LearnJS', () => {
     const identity = { email: 'foo@bar.com' }
     spyOn(learnjs, 'addProfileLink')
     learnjs.appOnReady()
-    learnjs.identity.resolve(identity)
-    learnjs.identity.promise.then(() => {
+    learnjs.id.resolve(identity)
+    learnjs.id.promise.then(() => {
       expect(learnjs.addProfileLink).toHaveBeenCalledWith(identity)
       done()
     })
@@ -117,8 +117,8 @@ describe('LearnJS', () => {
     })
 
     it('shows the user email address when they log in', (done) => {
-      learnjs.identity.resolve({ email: 'foo@bar.com' })
-      learnjs.identity.promise.then(() => {
+      learnjs.id.resolve({ email: 'foo@bar.com' })
+      learnjs.id.promise.then(() => {
         expect(view.find('.email').text()).toEqual('foo@bar.com')
         done()
       })
@@ -158,7 +158,7 @@ describe('LearnJS', () => {
     })
 
     it('fetches the AWS credentials and resolved', (done) => {
-      learnjs.identity.promise.then((identity) => {
+      learnjs.id.promise.then((identity) => {
         expect(identity.email).toEqual('foo@bar.com')
         expect(identity.id).toEqual('COGNITO_ID')
         done()
@@ -180,7 +180,7 @@ describe('LearnJS', () => {
       })
 
       it('returns a promise when token is refreshed', (done) => {
-        learnjs.identity.promise.then((identity) => {
+        learnjs.id.promise.then((identity) => {
           identity.refresh().then(() => {
             expect(AWS.config.credentials.params.Logins).toEqual({
               'accounts.google.com': 'GOOGLE_ID'
@@ -191,7 +191,7 @@ describe('LearnJS', () => {
       })
 
       it('does not re-prompt for consent when refreshing the token in', (done) => {
-        learnjs.identity.promise.then((identity) => {
+        learnjs.id.promise.then((identity) => {
           identity.refresh().then(() => {
             expect(instanceSpy.signIn).toHaveBeenCalledWith({prompt: 'login'})
             done()

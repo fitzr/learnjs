@@ -4,9 +4,18 @@ class LearnJS {
 
   constructor(problems) {
     this.problems = problems
-    this.identity = {}
-    this.identity.promise = new Promise((resolve) => {
-      this.identity.resolve = resolve
+    this.id = {}
+    this.id.promise = new Promise((resolve) => {
+      this.id.resolve = resolve
+    })
+  }
+
+  identity(fn) {
+    return new Promise(resolve => {
+      this.id.promise = this.id.promise.then(id => {
+        resolve(fn(id))
+        return id
+      })
     })
   }
 
@@ -15,8 +24,7 @@ class LearnJS {
       this.showView(window.location.hash)
     }
     this.showView(window.location.hash)
-    this.identity.promise =
-      this.identity.promise.then((identity) => this.addProfileLink(identity))
+    this.identity(identity => this.addProfileLink(identity))
   }
 
   triggerEvent(name, args) {
@@ -79,18 +87,14 @@ class LearnJS {
 
   profileView() {
     const view = this.template('profile-view')
-    this.identity.promise = this.identity.promise.then((identity) => {
-      view.find('.email').text(identity.email)
-      return identity
-    })
+    this.identity(identity => { view.find('.email').text(identity.email) })
     return view
   }
 
-  addProfileLink(identity) {
+  addProfileLink(id) {
     const link = this.template('profile-link')
-    link.find('a').text(identity.email)
+    link.find('a').text(id.email)
     $('.signin-bar').prepend(link)
-    return identity
   }
 
   template(name) {
@@ -176,10 +180,10 @@ function googleSignIn(googleUser) {
   }
 
   learnjs.awsRefresh().then((id) => {
-    learnjs.identity.resolve({
+    learnjs.id.resolve({
       id,
       email: googleUser.getBasicProfile().getEmail(),
-      refresh,
+      refresh
     })
   })
 }
