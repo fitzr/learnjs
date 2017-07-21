@@ -239,39 +239,37 @@ describe('LearnJS', () => {
         done()
       })
     })
+  })
 
-    describe('googleRefresh', () => {
-      let instanceSpy
+  describe('googleRefresh', () => {
+    let instanceSpy, user
 
-      beforeEach(() => {
-        AWS.config.credentials = { params: { Logins: {}}}
-        const updateSpy = jasmine.createSpyObj('userUpdate', ['getAuthResponse'])
-        updateSpy.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
-        instanceSpy = jasmine.createSpyObj('instance', ['signIn'])
-        instanceSpy.signIn.and.returnValue(Promise.resolve(updateSpy))
-        const auth2Spy = jasmine.createSpyObj('auth2', ['getAuthInstance'])
-        auth2Spy.getAuthInstance.and.returnValue(instanceSpy)
-        window.gapi = { auth2: auth2Spy }
-      })
+    beforeEach(() => {
+      spyOn(learnjs, 'awsRefresh').and.returnValue(Promise.resolve('COGNITO_ID'))
+      AWS.config.credentials = { params: { Logins: {}}}
+      const updateSpy = jasmine.createSpyObj('userUpdate', ['getAuthResponse'])
+      updateSpy.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
+      instanceSpy = jasmine.createSpyObj('instance', ['signIn'])
+      instanceSpy.signIn.and.returnValue(Promise.resolve(updateSpy))
+      const auth2Spy = jasmine.createSpyObj('auth2', ['getAuthInstance'])
+      auth2Spy.getAuthInstance.and.returnValue(instanceSpy)
+      window.gapi = { auth2: auth2Spy }
+      user = { email: 'foo@bar.com' }
+    })
 
-      it('returns a promise when token is refreshed', (done) => {
-        learnjs.idPromise.then((user) => {
-          learnjs.googleRefresh(user).then(() => {
-            expect(AWS.config.credentials.params.Logins).toEqual({
-              'accounts.google.com': 'GOOGLE_ID'
-            })
-            done()
-          })
+    it('returns a promise when token is refreshed', (done) => {
+      learnjs.googleRefresh(user).then(() => {
+        expect(AWS.config.credentials.params.Logins).toEqual({
+          'accounts.google.com': 'GOOGLE_ID'
         })
+        done()
       })
+    })
 
-      it('does not re-prompt for consent when refreshing the token in', (done) => {
-        learnjs.idPromise.then((user) => {
-          learnjs.googleRefresh(user).then(() => {
-            expect(instanceSpy.signIn).toHaveBeenCalledWith({prompt: 'login'})
-            done()
-          })
-        })
+    it('does not re-prompt for consent when refreshing the token in', (done) => {
+      learnjs.googleRefresh(user).then(() => {
+        expect(instanceSpy.signIn).toHaveBeenCalledWith({prompt: 'login'})
+        done()
       })
     })
   })
