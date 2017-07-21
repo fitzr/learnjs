@@ -3,3 +3,4 @@ dist
 working
 master
 conf/cognito
+conf/dynamodb
