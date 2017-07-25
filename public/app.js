@@ -4,16 +4,17 @@ class LearnJS {
 
   constructor(problems) {
     this.problems = problems
-    this.idPromise = new Promise((resolve) => {
-      this.idResolve = resolve
+    this.identity = new Promise(resolve => {
+      this.resolve = resolve
     })
+    this.email = ''
   }
 
-  userInfo(fn) {
-    this.idPromise = this.idPromise.then(user => {
-        fn(user)
-        return user
-    })
+  setEmail(email) {
+    if (this.email !== email) {
+      this.email = email
+      this.dispatchEvent('changingEmail', { detail: email })
+    }
   }
 
   appOnReady() {
@@ -21,11 +22,15 @@ class LearnJS {
       this.showView(window.location.hash)
     }
     this.showView(window.location.hash)
-    this.userInfo(user => { this.addProfileLink(user) })
+    this.addProfileLink()
   }
 
-  triggerEvent(name, args) {
-    $('.view-container>*').trigger(name, args)
+  dispatchEvent(name, param) {
+    document.dispatchEvent(new CustomEvent(name, param))
+  }
+
+  addEventListener(name, func) {
+    document.addEventListener(name, func)
   }
 
   showView(hash) {
@@ -38,7 +43,7 @@ class LearnJS {
     const [view, param] = hash.split('-')
     const viewFn = routes[view]
     if (viewFn) {
-      this.triggerEvent('removingView', [])
+      this.dispatchEvent('removingView', {})
       $('.view-container').empty().append(viewFn(param))
     }
   }
@@ -73,9 +78,7 @@ class LearnJS {
       const buttonItem = this.template('skip-btn')
       buttonItem.find('a').attr('href', `#problem-${problemNumber + 1}`)
       $('.nav-list').append(buttonItem)
-      view.bind('removingView', () => {
-        buttonItem.remove()
-      })
+      this.addEventListener('removingView', () => { buttonItem.remove() })
     }
 
     view.find('.title').text(`Problem #${problemNumber}`)
@@ -85,14 +88,17 @@ class LearnJS {
 
   profileView() {
     const view = this.template('profile-view')
-    this.userInfo(user => { view.find('.email').text(user.email) })
+    view.find('.email').text(this.email)
     return view
   }
 
-  addProfileLink(user) {
+  addProfileLink() {
     const link = this.template('profile-link')
-    link.find('a').text(user.email)
+    link.find('a').text(this.email)
     $('.signin-bar').prepend(link)
+    this.addEventListener('changingEmail', (e) => {
+      link.find('a').text(e.detail)
+    })
   }
 
   template(name) {
@@ -128,16 +134,14 @@ class LearnJS {
     return number < this.problems.length
   }
 
-  googleRefresh(user) {
+  googleRefresh() {
     return gapi.auth2
       .getAuthInstance()
       .signIn({ prompt: 'login' })
       .then((userUpdate) => {
         const creds = AWS.config.credentials
         creds.params.Logins['accounts.google.com'] = userUpdate.getAuthResponse().id_token
-        return this.awsRefresh().then(id => {
-          this.idPromise = Promise.resolve({ id, email: user.email })
-        })
+        return this.awsRefresh().then(id => this.identity = Promise.resolve(id))
       })
   }
 
@@ -147,20 +151,17 @@ class LearnJS {
   }
 
   saveAnswer(problemId, answer) {
-    return new Promise(resolve => {
-      learnjs.userInfo(user => {
-        const db = new AWS.DynamoDB.DocumentClient()
-        const item = {
-          TableName: 'learnjs',
-          Item: {
-            userId: user.id,
-            problemId: problemId,
-            answer,
-          }
+    return this.identity.then(id => {
+      const db = new AWS.DynamoDB.DocumentClient()
+      const item = {
+        TableName: 'learnjs',
+        Item: {
+          userId: id,
+          problemId: problemId,
+          answer,
         }
-        const request = learnjs.sendDbRequest(db.put(item), () => this.saveAnswer(problemId, answer))
-        resolve(request)
-      })
+      }
+      learnjs.sendDbRequest(db.put(item), () => this.saveAnswer(problemId, answer))
     })
   }
 
@@ -171,11 +172,9 @@ class LearnJS {
       })
       req.on('error', (error) => {
         if (error.code === 'CredentialsError') {
-          this.userInfo(user => {
-            this.googleRefresh(user)
+          this.googleRefresh()
               .then(retry)
               .then(resolve)
-          })
         } else {
           reject(error)
         }
@@ -207,6 +206,7 @@ const learnjs = new LearnJS(PROBLEMS)
 function googleSignIn(googleUser) {
   const id_token = googleUser.getAuthResponse().id_token
 
+  AWS.config.clear()
   AWS.config.update({
     region: 'ap-northeast-1',
     credentials: new AWS.CognitoIdentityCredentials({
@@ -216,11 +216,11 @@ function googleSignIn(googleUser) {
       }
     })
   })
+  AWS.config.credentials.clearCachedId() // for change account
 
   learnjs.awsRefresh().then((id) => {
-    learnjs.idResolve({
-      id,
-      email: googleUser.getBasicProfile().getEmail(),
-    })
+    learnjs.resolve(id)
+    const email = googleUser.getBasicProfile().getEmail()
+    learnjs.setEmail(email)
   })
 }
