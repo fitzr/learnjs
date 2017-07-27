@@ -13,7 +13,7 @@ class LearnJS {
   setEmail(email) {
     if (this.email !== email) {
       this.email = email
-      this.dispatchEvent('changingEmail', { detail: email })
+      this.dispatchEvent('changingEmail', email)
     }
   }
 
@@ -25,12 +25,12 @@ class LearnJS {
     this.addProfileLink()
   }
 
-  dispatchEvent(name, param) {
-    document.dispatchEvent(new CustomEvent(name, param))
+  dispatchEvent(name, detail) {
+    document.dispatchEvent(new CustomEvent(name, { detail }))
   }
 
   addEventListener(name, func) {
-    document.addEventListener(name, func)
+    document.addEventListener(name, (e) => func(e.detail))
   }
 
   showView(hash) {
@@ -96,8 +96,8 @@ class LearnJS {
     const link = this.template('profile-link')
     link.find('a').text(this.email)
     $('.signin-bar').prepend(link)
-    this.addEventListener('changingEmail', (e) => {
-      link.find('a').text(e.detail)
+    this.addEventListener('changingEmail', email => {
+      link.find('a').text(email)
     })
   }
 
