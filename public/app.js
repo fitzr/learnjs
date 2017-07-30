@@ -57,16 +57,17 @@ class LearnJS {
     const view = this.template('problem-view')
     const problemData = this.problems[problemNumber - 1]
     const resultFlash = view.find('.result')
+    const answer = view.find('.answer')
 
     view.find('.check-btn').click(() => {
-      const answer = view.find('.answer').val()
-      const test = problemData.code.replace('__', answer) + '; problem();'
+      const answerValue = answer.val()
+      const test = problemData.code.replace('__', answerValue) + '; problem();'
       const result = eval(test)
 
       if (result) {
         const correctFlash = this.buildCorrectFlash(problemNumber)
         this.flashElement(resultFlash, correctFlash)
-        this.saveAnswer(problemNumber, answer)
+        this.saveAnswer(problemNumber, answerValue)
       } else {
         this.flashElement(resultFlash, 'Incorrect!')
       }
@@ -80,6 +81,12 @@ class LearnJS {
       $('.nav-list').append(buttonItem)
       this.addEventListener('removingView', () => { buttonItem.remove() })
     }
+
+    this.fetchAnswer(problemNumber).then(data => {
+      if (data.Item) {
+        answer.val(data.Item.answer)
+      }
+    })
 
     view.find('.title').text(`Problem #${problemNumber}`)
     this.applyObject(problemData, view)
@@ -157,11 +164,25 @@ class LearnJS {
         TableName: 'learnjs',
         Item: {
           userId: id,
-          problemId: problemId,
+          problemId,
           answer,
         }
       }
       learnjs.sendDbRequest(db.put(item), () => this.saveAnswer(problemId, answer))
+    })
+  }
+
+  fetchAnswer(problemId) {
+    return this.identity.then(id => {
+      const db = new AWS.DynamoDB.DocumentClient()
+      const item = {
+        TableName: 'learnjs',
+        Key: {
+          userId: id,
+          problemId,
+        }
+      }
+      return learnjs.sendDbRequest(db.get(item), () => this.fetchAnswer(problemId))
     })
   }
 
@@ -180,6 +201,27 @@ class LearnJS {
         }
       })
       req.send()
+    })
+  }
+
+  googleSignIn(googleUser) {
+    const id_token = googleUser.getAuthResponse().id_token
+
+    AWS.config.update({
+      region: 'ap-northeast-1',
+      credentials: new AWS.CognitoIdentityCredentials({
+        IdentityPoolId: POOL_ID,
+        Logins: {
+          'accounts.google.com': id_token
+        }
+      })
+    })
+    AWS.config.credentials.clearCachedId() // for change account
+
+    this.awsRefresh().then((id) => {
+      this.resolve(id)
+      const email = googleUser.getBasicProfile().getEmail()
+      learnjs.setEmail(email)
     })
   }
 }
@@ -204,22 +246,5 @@ const POOL_ID = 'ap-northeast-1:df5562d1-b8ba-4fe0-8ca2-9d25092f192b'
 const learnjs = new LearnJS(PROBLEMS)
 
 function googleSignIn(googleUser) {
-  const id_token = googleUser.getAuthResponse().id_token
-
-  AWS.config.update({
-    region: 'ap-northeast-1',
-    credentials: new AWS.CognitoIdentityCredentials({
-      IdentityPoolId: POOL_ID,
-      Logins: {
-        'accounts.google.com': id_token
-      }
-    })
-  })
-  AWS.config.credentials.clearCachedId() // for change account
-
-  learnjs.awsRefresh().then((id) => {
-    learnjs.resolve(id)
-    const email = googleUser.getBasicProfile().getEmail()
-    learnjs.setEmail(email)
-  })
+  learnjs.googleSignIn(googleUser)
 }

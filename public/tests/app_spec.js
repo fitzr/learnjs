@@ -204,7 +204,7 @@ describe('LearnJS', () => {
       user.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
       user.getBasicProfile.and.returnValue(profile)
       profile.getEmail.and.returnValue('foo@bar.com')
-      googleSignIn(user)
+      learnjs.googleSignIn(user)
     })
 
     it('sets the AWS region', () => {
