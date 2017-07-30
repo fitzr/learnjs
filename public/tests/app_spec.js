@@ -176,32 +176,30 @@ describe('LearnJS', () => {
       })
     })
   })
-/*
+
   describe('profile view', () => {
-    let view
-
-    beforeEach(() => {
-      view = learnjs.profileView()
-    })
-
     it('shows the user email address when they log in', () => {
-      learnjs.setEmail('foo@bar.com')
+      learnjs.email = 'foo@bar.com'
+      const view = learnjs.profileView()
       expect(view.find('.email').text()).toEqual('foo@bar.com')
     })
 
     it('shows no email when the user is not logged in yet', () => {
+      learnjs.email = ''
+      const view = learnjs.profileView()
       expect(view.find('.email').text()).toEqual('')
     })
   })
 
   describe('googleSignIn callback', () => {
-    let user, profile
+    let user, profile, credentials
 
     beforeEach(() => {
       profile = jasmine.createSpyObj('profile', ['getEmail'])
       const refreshPromise = Promise.resolve('COGNITO_ID')
       spyOn(learnjs, 'awsRefresh').and.returnValue(refreshPromise)
-      spyOn(AWS, 'CognitoIdentityCredentials')
+      credentials = jasmine.createSpyObj('credentials', ['clearCachedId'])
+      spyOn(AWS, 'CognitoIdentityCredentials').and.returnValue(credentials)
       user = jasmine.createSpyObj('user', ['getAuthResponse', 'getBasicProfile'])
       user.getAuthResponse.and.returnValue({id_token: 'GOOGLE_ID'})
       user.getBasicProfile.and.returnValue(profile)
@@ -222,15 +220,19 @@ describe('LearnJS', () => {
       })
     })
 
+    it('clears the cached id', () => {
+      expect(credentials.clearCachedId).toHaveBeenCalled()
+    })
+
     it('fetches the AWS credentials and resolved', (done) => {
-      learnjs.idPromise.then((user) => {
-        expect(user.email).toEqual('foo@bar.com')
-        expect(user.id).toEqual('COGNITO_ID')
+      learnjs.identity.then(id => {
+        expect(id).toEqual('COGNITO_ID')
+        expect(learnjs.email).toEqual('foo@bar.com')
         done()
       })
     })
   })
-/*
+
   describe('googleRefresh', () => {
     let instanceSpy, user
 
@@ -289,7 +291,7 @@ describe('LearnJS', () => {
       })
 
       it('is removed from the navbar when the view is removed', () => {
-        view.trigger('removingView')
+        learnjs.dispatchEvent('removingView', {})
         expect($('.nav-list .skip-btn').length).toEqual(0)
       })
 
@@ -298,7 +300,7 @@ describe('LearnJS', () => {
       })
 
       it('does not added when at the last problem', () => {
-        view.trigger('removingView')
+        learnjs.dispatchEvent('removingView', {})
         view = learnjs.problemView(`${learnjs.problems.length}`)
         expect($('.nav-list .skip-btn').length).toEqual(0)
       })
@@ -344,5 +346,4 @@ describe('LearnJS', () => {
       })
     })
   })
-  */
 })

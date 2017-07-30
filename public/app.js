@@ -206,7 +206,6 @@ const learnjs = new LearnJS(PROBLEMS)
 function googleSignIn(googleUser) {
   const id_token = googleUser.getAuthResponse().id_token
 
-  AWS.config.clear()
   AWS.config.update({
     region: 'ap-northeast-1',
     credentials: new AWS.CognitoIdentityCredentials({
