@@ -6,9 +6,17 @@ describe('LearnJS', () => {
     })
   })
 
-  it('can show a problem view', () => {
-    learnjs.showView('#problem-1')
-    expect($('.view-container .problem-view').length).toEqual(1)
+  describe('changing views', () => {
+    it('can show a problem view', () => {
+      learnjs.showView('#problem-1')
+      expect($('.view-container .problem-view').length).toEqual(1)
+    })
+
+    it('dispatch removeView event when removing the view', () => {
+      spyOn(learnjs, 'dispatchEvent')
+      learnjs.showView('#problem-1')
+      expect(learnjs.dispatchEvent).toHaveBeenCalledWith('removingView', {})
+    })
   })
 
   it('shows the landing page view when there is no hash', () => {
@@ -20,12 +28,6 @@ describe('LearnJS', () => {
     spyOn(learnjs, 'problemView')
     learnjs.showView('#problem-42')
     expect(learnjs.problemView).toHaveBeenCalledWith('42')
-  })
-
-  it('dispatch removeView event when removing the view', () => {
-    spyOn(learnjs, 'dispatchEvent')
-    learnjs.showView('#problem-1')
-    expect(learnjs.dispatchEvent).toHaveBeenCalledWith('removingView', {})
   })
 
   it('invokes the router when loaded', () => {
@@ -76,38 +78,74 @@ describe('LearnJS', () => {
     expect($('.signin-bar a').attr('href')).toEqual('#profile')
   })
 
-  describe('saveAnswer', () => {
+  describe('widh DynamoDB', () => {
     let dbspy
     beforeEach(() => {
-      dbspy = jasmine.createSpyObj('db', ['put'])
-      dbspy.put.and.returnValue('request')
+      dbspy = jasmine.createSpyObj('db', ['get', 'put'])
       spyOn(AWS.DynamoDB, 'DocumentClient').and.returnValue(dbspy)
       spyOn(learnjs, 'sendDbRequest')
       learnjs.resolve('COGNITO_ID')
     })
 
-    it('writes the item to the database', (done) => {
-      learnjs.saveAnswer(1, {}).then(() => {
-        expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
-        expect(dbspy.put).toHaveBeenCalledWith({
-          TableName: 'learnjs',
-          Item: {
-            userId: 'COGNITO_ID',
-            problemId: 1,
-            answer: {},
-          }
+    describe('fetchAnswer', () => {
+      beforeEach(() => {
+        dbspy.get.and.returnValue('request')
+      })
+
+      it('reads the item from the database', (done) => {
+        learnjs.sendDbRequest.and.returnValue(Promise.resolve('item'))
+        learnjs.fetchAnswer(1).then((item) => {
+          expect(item).toEqual('item')
+          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(dbspy.get).toHaveBeenCalledWith({
+            TableName: 'learnjs',
+            Key: {
+              userId: 'COGNITO_ID',
+              problemId: 1,
+            }
+          })
+          done()
         })
-        done()
-      }, fail)
+      })
+
+      it('resubmits the request on retry', (done) => {
+        learnjs.fetchAnswer(1, {answer: 'false'}).then(() => {
+          spyOn(learnjs, 'fetchAnswer').and.returnValue('promise')
+          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.fetchAnswer).toHaveBeenCalledWith(1)
+          done()
+        })
+      })
     })
 
-    it('resubmits the request on retry', (done) => {
-      learnjs.saveAnswer(1, {answer: 'false'}).then(() => {
-        spyOn(learnjs, 'saveAnswer').and.returnValue('promise')
-        expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
-        expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, {answer: 'false'})
-        done()
-      }, fail)
+    describe('saveAnswer', () => {
+      beforeEach(() => {
+        dbspy.put.and.returnValue('request')
+      })
+
+      it('writes the item to the database', (done) => {
+        learnjs.saveAnswer(1, {}).then(() => {
+          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(dbspy.put).toHaveBeenCalledWith({
+            TableName: 'learnjs',
+            Item: {
+              userId: 'COGNITO_ID',
+              problemId: 1,
+              answer: {},
+            }
+          })
+          done()
+        })
+      })
+
+      it('resubmits the request on retry', (done) => {
+        learnjs.saveAnswer(1, {answer: 'false'}).then(() => {
+          spyOn(learnjs, 'saveAnswer').and.returnValue('promise')
+          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, {answer: 'false'})
+          done()
+        })
+      })
     })
   })
 
@@ -267,10 +305,32 @@ describe('LearnJS', () => {
   })
 
   describe('problem view', () => {
-    let view
+    let view, fetchAnswerResolve, fetchAnswerPromise
 
     beforeEach(() => {
+      fetchAnswerPromise = new Promise(resolve => { fetchAnswerResolve = resolve })
+      spyOn(learnjs, 'fetchAnswer').and.returnValue(fetchAnswerPromise)
       view = learnjs.problemView('1')
+    })
+
+    it('loads the previous answer, if there is one', (done) => {
+      fetchAnswerResolve({Item: {answer: 'true'}})
+      fetchAnswerPromise.then(() => {
+        expect(view.find('.answer').val()).toEqual('true')
+        done()
+      })
+    })
+
+    it('keeps the answer blank until the promise is resolved', () => {
+      expect(view.find('.answer').val()).toEqual('')
+    })
+
+    it('does nothing if the question has not been answerd yet', (done) => {
+      fetchAnswerResolve({})
+      fetchAnswerPromise.then(() => {
+        expect(view.find('.answer').val()).toEqual('')
+        done()
+      })
     })
 
     it('has a title that includes the problem number', () => {
