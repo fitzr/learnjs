@@ -186,6 +186,19 @@ class LearnJS {
     })
   }
 
+  countAnswers(problemId) {
+    return this.identity.then(() => {
+      const db = new AWS.DynamoDB.DocumentClient()
+      const params = {
+        TableName: 'learnjs',
+        Select: 'COUNT',
+        FilterExpression: 'problemId = :problemId',
+        ExpressionAttributeValues: {':problemId': problemId}
+      }
+      return learnjs.sendDbRequest(db.scan(params), () => this.countAnswers(problemId))
+    })
+  }
+
   sendDbRequest(req, retry) {
     return new Promise((resolve, reject) => {
       req.on('success', (resp) => {

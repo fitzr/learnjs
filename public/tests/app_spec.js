@@ -78,10 +78,10 @@ describe('LearnJS', () => {
     expect($('.signin-bar a').attr('href')).toEqual('#profile')
   })
 
-  describe('widh DynamoDB', () => {
+  describe('with DynamoDB', () => {
     let dbspy
     beforeEach(() => {
-      dbspy = jasmine.createSpyObj('db', ['get', 'put'])
+      dbspy = jasmine.createSpyObj('db', ['get', 'put', 'scan'])
       spyOn(AWS.DynamoDB, 'DocumentClient').and.returnValue(dbspy)
       spyOn(learnjs, 'sendDbRequest')
       learnjs.resolve('COGNITO_ID')
@@ -143,6 +143,36 @@ describe('LearnJS', () => {
           spyOn(learnjs, 'saveAnswer').and.returnValue('promise')
           expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
           expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, {answer: 'false'})
+          done()
+        })
+      })
+    })
+
+    describe('countAnswers', () => {
+      beforeEach(() => {
+        dbspy.scan.and.returnValue('request')
+      })
+
+      it('reads the item from the database', (done) => {
+        learnjs.sendDbRequest.and.returnValue(Promise.resolve('item'))
+        learnjs.countAnswers(1).then((item) => {
+          expect(item).toEqual('item')
+          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(dbspy.scan).toHaveBeenCalledWith({
+            TableName: 'learnjs',
+            Select: 'COUNT',
+            FilterExpression: 'problemId = :problemId',
+            ExpressionAttributeValues: {':problemId': 1}
+          })
+          done()
+        })
+      })
+
+      it('resubmits the request on retry', (done) => {
+        learnjs.countAnswers(1).then(() => {
+          spyOn(learnjs, 'countAnswers').and.returnValue('promise')
+          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.countAnswers).toHaveBeenCalledWith(1)
           done()
         })
       })
