@@ -1,16 +1,18 @@
-describe('lambda function', function() {
-  var index = require('index');
-  var context;
 
-  beforeEach(function() {
-    context = jasmine.createSpyObj('context', ['succeed']);
-  });
 
-  describe('echo', function() {
-    it('returns a result', function() {
-      index.echo({}, context);
-      expected = ["Hello from the cloud! You sent {}"];
-      expect(context.succeed).toHaveBeenCalledWith(expected);
-    });
-  });
-});
+describe('lambda function', () => {
+  const index = require('../lib/index')
+  let context
+
+  beforeEach(() => {
+    context = jasmine.createSpyObj('context', ['succeed'])
+  })
+
+  describe('echo', () => {
+    it('returns a result', () => {
+      index.echo({}, context)
+      const expected = ["Hello from the cloud! You sent {}"]
+      expect(context.succeed).toHaveBeenCalledWith(expected)
+    })
+  })
+})
