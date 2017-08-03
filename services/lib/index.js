@@ -12,7 +12,8 @@ const scan = (param) => (
 )
 
 const filterTopFive = (items) => {
-  const countMap = items.reduce((obj, { answer }) => {
+  const countMap = items.reduce((obj, item) => {
+    const answer = item.answer
     obj[answer] = (obj[answer] || 0) + 1
     return obj
   }, {})
@@ -22,8 +23,8 @@ const filterTopFive = (items) => {
     .map(key => [key, countMap[key]])
     .sort((e1, e2) => e1[1] - e2[1])
     .slice(0, 5)
-    .reduce((ret, [answer, count]) => {
-      ret[answer] = count
+    .reduce((ret, e) => {
+      ret[e[0]] = e[1]
       return ret
     }, {})
 }
