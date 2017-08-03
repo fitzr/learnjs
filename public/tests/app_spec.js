@@ -83,7 +83,7 @@ describe('LearnJS', () => {
     beforeEach(() => {
       dbspy = jasmine.createSpyObj('db', ['get', 'put', 'scan'])
       spyOn(AWS.DynamoDB, 'DocumentClient').and.returnValue(dbspy)
-      spyOn(learnjs, 'sendDbRequest')
+      spyOn(learnjs, 'sendAwsRequest')
       learnjs.resolve('COGNITO_ID')
     })
 
@@ -93,10 +93,10 @@ describe('LearnJS', () => {
       })
 
       it('reads the item from the database', (done) => {
-        learnjs.sendDbRequest.and.returnValue(Promise.resolve('item'))
+        learnjs.sendAwsRequest.and.returnValue(Promise.resolve('item'))
         learnjs.fetchAnswer(1).then((item) => {
           expect(item).toEqual('item')
-          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(learnjs.sendAwsRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
           expect(dbspy.get).toHaveBeenCalledWith({
             TableName: 'learnjs',
             Key: {
@@ -111,7 +111,7 @@ describe('LearnJS', () => {
       it('resubmits the request on retry', (done) => {
         learnjs.fetchAnswer(1, {answer: 'false'}).then(() => {
           spyOn(learnjs, 'fetchAnswer').and.returnValue('promise')
-          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.sendAwsRequest.calls.first().args[1]()).toEqual('promise')
           expect(learnjs.fetchAnswer).toHaveBeenCalledWith(1)
           done()
         })
@@ -125,7 +125,7 @@ describe('LearnJS', () => {
 
       it('writes the item to the database', (done) => {
         learnjs.saveAnswer(1, {}).then(() => {
-          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(learnjs.sendAwsRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
           expect(dbspy.put).toHaveBeenCalledWith({
             TableName: 'learnjs',
             Item: {
@@ -141,7 +141,7 @@ describe('LearnJS', () => {
       it('resubmits the request on retry', (done) => {
         learnjs.saveAnswer(1, {answer: 'false'}).then(() => {
           spyOn(learnjs, 'saveAnswer').and.returnValue('promise')
-          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.sendAwsRequest.calls.first().args[1]()).toEqual('promise')
           expect(learnjs.saveAnswer).toHaveBeenCalledWith(1, {answer: 'false'})
           done()
         })
@@ -154,10 +154,10 @@ describe('LearnJS', () => {
       })
 
       it('reads the item from the database', (done) => {
-        learnjs.sendDbRequest.and.returnValue(Promise.resolve('item'))
+        learnjs.sendAwsRequest.and.returnValue(Promise.resolve('item'))
         learnjs.countAnswers(1).then((item) => {
           expect(item).toEqual('item')
-          expect(learnjs.sendDbRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(learnjs.sendAwsRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
           expect(dbspy.scan).toHaveBeenCalledWith({
             TableName: 'learnjs',
             Select: 'COUNT',
@@ -171,7 +171,7 @@ describe('LearnJS', () => {
       it('resubmits the request on retry', (done) => {
         learnjs.countAnswers(1).then(() => {
           spyOn(learnjs, 'countAnswers').and.returnValue('promise')
-          expect(learnjs.sendDbRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.sendAwsRequest.calls.first().args[1]()).toEqual('promise')
           expect(learnjs.countAnswers).toHaveBeenCalledWith(1)
           done()
         })
@@ -179,7 +179,7 @@ describe('LearnJS', () => {
     })
   })
 
-  describe('sendDbRequest', () => {
+  describe('sendAwsRequest', () => {
     let request, requestHandlers, promise, retrySpy
     beforeEach(() => {
       spyOn(learnjs, 'googleRefresh').and.returnValue(Promise.resolve())
@@ -189,7 +189,7 @@ describe('LearnJS', () => {
         requestHandlers[eventName] = callback
       })
       retrySpy = jasmine.createSpy('retry')
-      promise = learnjs.sendDbRequest(request, retrySpy)
+      promise = learnjs.sendAwsRequest(request, retrySpy)
     })
 
     it('resolves the returned promise on success', (done) => {

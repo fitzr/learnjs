@@ -168,7 +168,7 @@ class LearnJS {
           answer,
         }
       }
-      learnjs.sendDbRequest(db.put(item), () => this.saveAnswer(problemId, answer))
+      learnjs.sendAwsRequest(db.put(item), () => this.saveAnswer(problemId, answer))
     })
   }
 
@@ -182,7 +182,7 @@ class LearnJS {
           problemId,
         }
       }
-      return learnjs.sendDbRequest(db.get(item), () => this.fetchAnswer(problemId))
+      return learnjs.sendAwsRequest(db.get(item), () => this.fetchAnswer(problemId))
     })
   }
 
@@ -195,11 +195,11 @@ class LearnJS {
         FilterExpression: 'problemId = :problemId',
         ExpressionAttributeValues: {':problemId': problemId}
       }
-      return learnjs.sendDbRequest(db.scan(params), () => this.countAnswers(problemId))
+      return learnjs.sendAwsRequest(db.scan(params), () => this.countAnswers(problemId))
     })
   }
 
-  sendDbRequest(req, retry) {
+  sendAwsRequest(req, retry) {
     return new Promise((resolve, reject) => {
       req.on('success', (resp) => {
         resolve(resp.data)
