@@ -199,6 +199,17 @@ class LearnJS {
     })
   }
 
+  popularAnswers(problemId) {
+    return this.identity.then(() => {
+      const lambda = new AWS.Lambda()
+      const params = {
+        FunctionName: 'popularAnswers',
+        Payload: JSON.stringify({problemNumber: problemId})
+      }
+      return learnjs.sendAwsRequest(lambda.invoke(params), () => this.popularAnswers(problemId))
+    })
+  }
+
   sendAwsRequest(req, retry) {
     return new Promise((resolve, reject) => {
       req.on('success', (resp) => {

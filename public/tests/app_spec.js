@@ -118,6 +118,37 @@ describe('LearnJS', () => {
       })
     })
 
+    describe('popularAnswers', () => {
+      let lambdaSpy
+      beforeEach(() => {
+        lambdaSpy = jasmine.createSpyObj('lambda', ['invoke'])
+        spyOn(AWS, 'Lambda').and.returnValue(lambdaSpy)
+        lambdaSpy.invoke.and.returnValue('request')
+      })
+
+      it('reads the item from the database', (done) => {
+        learnjs.sendAwsRequest.and.returnValue(Promise.resolve('item'))
+        learnjs.popularAnswers(1).then((item) => {
+          expect(item).toEqual('item')
+          expect(learnjs.sendAwsRequest).toHaveBeenCalledWith('request', jasmine.any(Function))
+          expect(lambdaSpy.invoke).toHaveBeenCalledWith({
+            FunctionName: 'popularAnswers',
+            Payload: JSON.stringify({ problemNumber: 1 })
+          })
+          done()
+        })
+      })
+
+      it('resubmits the request on retry', (done) => {
+        learnjs.popularAnswers(1).then(() => {
+          spyOn(learnjs, 'popularAnswers').and.returnValue('promise')
+          expect(learnjs.sendAwsRequest.calls.first().args[1]()).toEqual('promise')
+          expect(learnjs.popularAnswers).toHaveBeenCalledWith(1)
+          done()
+        })
+      })
+    })
+
     describe('saveAnswer', () => {
       beforeEach(() => {
         dbspy.put.and.returnValue('request')
