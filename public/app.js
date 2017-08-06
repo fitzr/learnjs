@@ -59,21 +59,25 @@ class LearnJS {
     const resultFlash = view.find('.result')
     const answer = view.find('.answer')
 
-    view.find('.check-btn').click(() => {
-      const answerValue = answer.val()
-      const test = problemData.code.replace('__', answerValue) + '; problem();'
-      const result = eval(test)
-
-      if (result) {
+    const replyToAnswer = (result) => {
+      if (result.isCorrect) {
         const correctFlash = this.buildCorrectFlash(problemNumber)
         this.flashElement(resultFlash, correctFlash)
-        this.saveAnswer(problemNumber, answerValue)
+        this.saveAnswer(problemNumber, result.answerValue)
       } else {
         this.flashElement(resultFlash, 'Incorrect!')
       }
+    }
 
-      return false
-    })
+    const checkAnswer = () => {
+      const answerValue = answer.val()
+      const test = problemData.code.replace('__', answerValue) + '; problem();'
+      const worker = new Worker('worker.js')
+      worker.onmessage = e => replyToAnswer({ answerValue, isCorrect: e.data })
+      worker.postMessage(test)
+    }
+
+    view.find('.check-btn').click(checkAnswer)
 
     if (this.hasNextProblem(problemNumber)) {
       const buttonItem = this.template('skip-btn')

@@ -1,6 +1,11 @@
 
 describe('LearnJS', () => {
+
   beforeEach(() => {
+    const fakeWorker = {
+      postMessage: (msg) => { fakeWorker.onmessage({data: eval(msg)}) }
+    }
+    spyOn(window, 'Worker').and.returnValue(fakeWorker)
     learnjs.identity = new Promise(resolve => {
       learnjs.resolve = resolve
     })
